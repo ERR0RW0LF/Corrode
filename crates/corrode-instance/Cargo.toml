@@ -4,3 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+bollard.workspace = true
+craftping.workspace = true
+java-properties.workspace = true
+thiserror.workspace = true
