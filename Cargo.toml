@@ -1,0 +1,22 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.dependencies]
+tokio = "1.53.1"
+axum = "0.8.9"
+tower-http = "0.7.1"
+serde = "1.0.229"
+sqlx = "0.9.0"
+argon2 = "0.6.0"
+tower-sessions = "0.15.0"
+tower-sessions-sqlx-store = "0.15.0"
+axum-login = "0.18.0"
+bollard = "0.21.1"
+reqwest = { version = "0.13.5", features = ["rustls-tls"] }
+zip = "8.6.0"
+java-properties = "2.0.0"
+craftping = "0.8.0"
+thiserror = "2.0.21"
+anyhow = "1.0.104"
+testcontainers = "0.28.0"
