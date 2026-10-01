@@ -1,4 +1,5 @@
-
+use dotenv::dotenv;
+use sqlx::PgPool;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use anyhow::Result;
@@ -6,10 +7,13 @@ use anyhow::Result;
 #[cfg(test)]
 mod tests;
 mod auth;
+mod db;
 
 
 #[tokio::main]
 async fn main() -> Result<()>{
+    dotenv().ok();
+
     tracing_subscriber::registry()
         .with(EnvFilter::new(std::env::var("RUST_LOG").unwrap_or_else(
             |_| {
@@ -21,7 +25,19 @@ async fn main() -> Result<()>{
         .with(tracing_subscriber::fmt::layer())
         .try_init()?;
 
-    sqlx::migrate!("./migrations");
+    let pool_address = if let Ok(a) = std::env::var("DATABASE_URL") {
+        a
+    } else {
+        panic!()
+    };
 
+    let pool = PgPool::connect(&pool_address).await?;
+
+    sqlx::migrate!()
+        .run(&pool)
+        .await?;
+
+
+    pool.close().await;
     Ok(())
 }
