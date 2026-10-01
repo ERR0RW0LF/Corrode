@@ -8,8 +8,8 @@ mod tests;
 mod auth;
 
 
-
-fn main() -> Result<()>{
+#[tokio::main]
+async fn main() -> Result<()>{
     tracing_subscriber::registry()
         .with(EnvFilter::new(std::env::var("RUST_LOG").unwrap_or_else(
             |_| {
@@ -21,6 +21,7 @@ fn main() -> Result<()>{
         .with(tracing_subscriber::fmt::layer())
         .try_init()?;
 
+    sqlx::migrate!("./migrations");
 
     Ok(())
 }

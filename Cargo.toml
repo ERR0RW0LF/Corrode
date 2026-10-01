@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.dependencies]
-tokio = "1.53.1"
+tokio = { version = "1.53.1", features = ["macros","rt-multi-thread"]}
 axum = "0.8.9"
 tower-http = "0.7.1"
 serde = "1.0.229"
