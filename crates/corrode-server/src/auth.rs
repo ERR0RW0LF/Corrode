@@ -1,4 +1,4 @@
-use std::{fmt::Debug, mem::type_info::Str, time::Duration};
+use std::{fmt::Debug, time::Duration};
 use argon2::{Algorithm, Argon2, Params, PasswordHasher, PasswordVerifier, Version};
 use serde::Deserialize;
 use thiserror::Error;
@@ -62,6 +62,7 @@ impl std::fmt::Debug for User {
         f.debug_struct("User")
             .field("id", &self.id)
             .field("username", &self.username)
+            .field("role", &self.role)
             .field("password_hash", &"[redacted]")
             .finish()
     }
