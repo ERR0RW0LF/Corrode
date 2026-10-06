@@ -15,6 +15,9 @@ pub enum AuthError {
 
     #[error("argon2 error")]
     Argon2Error,
+
+    #[error("fetch user by id failed")]
+    IdBasedFail,
 }
 
 
@@ -108,7 +111,7 @@ impl AuthnBackend for Backend {
         let jitter_millis = rng.random_range(-base_delay_millis..base_delay_millis);
         let jitter_micros = rng.random_range(-base_delay_micros..base_delay_micros);
 
-        sleep(Duration::from_millis((base_delay_millis + jitter_millis) as u64) + Duration::from_micros((base_delay_micros + jitter_micros) as u64));
+        sleep(Duration::from_millis((base_delay_millis + jitter_millis) as u64) + Duration::from_micros((base_delay_micros + jitter_micros) as u64)).await;
 
 
 
@@ -131,12 +134,21 @@ impl AuthnBackend for Backend {
         }
     }
 
-    async fn get_user(
+    fn get_user(
         &self,
         user_id: &axum_login::UserId<Self>,
     ) -> impl Future<Output = Result<Option<Self::User>, Self::Error>> + Send
     {
-        todo!("get_user based on user_id")
+        let pool = self.users.clone();
+        let user_id = user_id.clone();
+
+        async move {
+            let user: Option<Self::User> = match sqlx::query_as("select * from users where id = $1").bind(user_id).fetch_optional(&pool).await {
+                Ok(g) => g,
+                _ => {return Err(Self::Error::IdBasedFail); }
+            };
+            Ok(user)
+        }
     }
 }
 
