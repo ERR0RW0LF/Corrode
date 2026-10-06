@@ -1,4 +1,4 @@
-use std::{fmt::Debug, time::Duration};
+use std::{fmt::Debug, mem::type_info::Str, time::Duration};
 use argon2::{Algorithm, Argon2, Params, PasswordHasher, PasswordVerifier, Version};
 use serde::Deserialize;
 use thiserror::Error;
@@ -31,8 +31,16 @@ pub struct User {
 
 #[derive(Clone)]
 pub struct Backend {
-    users: PgPool
+    users: PgPool,
+    pepper: String
 }
+
+impl Backend {
+    fn new(users: PgPool, pepper: String) -> Self {
+        Backend { users , pepper }
+    }
+}
+
 
 #[derive(Clone, Deserialize)]
 pub struct Credentials {
@@ -72,7 +80,7 @@ impl AuthUser for User {
     }
 }
 
-use rand::{Rng, RngExt};
+use rand::{RngExt};
 
 impl AuthnBackend for Backend {
     type User = User;
@@ -84,7 +92,7 @@ impl AuthnBackend for Backend {
         cred: Self::Credentials,
     ) -> Result<Option<Self::User>, Self::Error>
     {
-        let secret = std::env::var("PASSWORD_PEPPER").unwrap();
+        let secret = self.pepper.clone();
         let argon2 = Argon2::new_with_secret(
             secret.as_bytes(), 
             Algorithm::default(), 
