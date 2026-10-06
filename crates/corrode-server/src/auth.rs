@@ -1,8 +1,10 @@
-use std::collections::HashMap;
-use argon2::{Algorithm, Argon2, Params, PasswordHash, PasswordHasher, PasswordVerifier, Version, password_hash};
+use std::{fmt::Debug, time::Duration};
+use argon2::{Algorithm, Argon2, Params, PasswordHasher, PasswordVerifier, Version};
+use serde::Deserialize;
 use thiserror::Error;
 use axum_login::{AuthUser, AuthnBackend};
-use sqlx::FromRow;
+use sqlx::{FromRow, PgPool};
+use tokio::time::sleep;
 use uuid::Uuid;
 
 
@@ -29,13 +31,22 @@ pub struct User {
 
 #[derive(Clone)]
 pub struct Backend {
-    users: HashMap<String, User>
+    users: PgPool
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize)]
 pub struct Credentials {
-    user_name: String,
-    user_password: String,
+    username: String,
+    password: String,
+}
+
+impl Debug for Credentials {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Credentials")
+            .field("username", &self.username)
+            .field("password", &"[redacted]")
+            .finish()
+    }
 }
 
 impl std::fmt::Debug for User {
@@ -61,6 +72,7 @@ impl AuthUser for User {
     }
 }
 
+use rand::{Rng, RngExt};
 
 impl AuthnBackend for Backend {
     type User = User;
@@ -69,21 +81,44 @@ impl AuthnBackend for Backend {
 
     async fn authenticate(
         &self,
-        Credentials { user_name, user_password }: Self::Credentials,
+        cred: Self::Credentials,
     ) -> Result<Option<Self::User>, Self::Error>
     {
-        if let Some(user) = self.users.get(&user_name) {
-            let res = verify_password(&user_password, &user.password_hash);
-            match res {
-                Ok(true) => {
-                    return Ok(Some(user.clone()));
-                },
-                _ => {
-                    return Err(Self::Error::CredentialsIncorrect.into());
-                }
-            }
+        let secret = std::env::var("PASSWORD_PEPPER").unwrap();
+        let argon2 = Argon2::new_with_secret(
+            secret.as_bytes(), 
+            Algorithm::default(), 
+            Version::default(), 
+            Params::default()
+        ).unwrap_or(return Err(Self::Error::Argon2Error));
+        
+        let mut rng = rand::rng();
+
+        let base_delay_millis = 13;
+        let base_delay_micros = 46;
+        let jitter_millis = rng.random_range(-base_delay_millis..base_delay_millis);
+        let jitter_micros = rng.random_range(-base_delay_micros..base_delay_micros);
+
+        sleep(Duration::from_millis((base_delay_millis + jitter_millis) as u64) + Duration::from_micros((base_delay_micros + jitter_micros) as u64));
+
+
+
+        let user: Self::User = if let Ok(Some(t)) = sqlx::query_as("select * from users where username = $1").bind(cred.username).fetch_optional(&self.users).await {
+            t
         } else {
-            return Err(Self::Error::CredentialsIncorrect.into());
+            return Ok(None);
+        };
+
+        match verify_password(&cred.password, &user.password_hash, argon2) {
+            Ok(true) => {
+                Ok(Some(user))
+            },
+            Ok(false) => {
+                Ok(None)
+            },
+            Err(_) => {
+                Err(Self::Error::Argon2Error)
+            }
         }
     }
 
@@ -92,7 +127,7 @@ impl AuthnBackend for Backend {
         user_id: &axum_login::UserId<Self>,
     ) -> impl Future<Output = Result<Option<Self::User>, Self::Error>> + Send
     {
-        
+        todo!("get_user based on user_id")
     }
 }
 
@@ -114,15 +149,7 @@ fn hash_password(password: &str) -> anyhow::Result<String>{
     Ok(password_hash)
 }
 
-fn verify_password(password: &str, pw_hash: &str) -> anyhow::Result<bool> {
-    let secret = std::env::var("PASSWORD_PEPPER").unwrap();
-    let argon2 = Argon2::new_with_secret(
-        secret.as_bytes(), 
-        Algorithm::default(), 
-        Version::default(), 
-        Params::default()
-    )?;
-
+fn verify_password(password: &str, pw_hash: &str, argon2: Argon2<'_>) -> anyhow::Result<bool> {
     let res = argon2.verify_password(password.as_bytes(), pw_hash);
     Ok(res.is_ok() as bool)
 }

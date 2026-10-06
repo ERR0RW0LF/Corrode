@@ -1,5 +1,4 @@
 use dotenvy::dotenv;
-use sqlx::{PgPool, Pool, Postgres};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use anyhow::Result;
@@ -31,12 +30,8 @@ async fn main() -> Result<()>{
         panic!()
     };
 
-    if let Ok(p) = std::env::var("PASSWORD_PEPPER") {
-        println!("{}",p);
-    };
-
     let pool = db::setup_pool(&pool_address).await?;
- 
+
 
     pool.close().await;
     Ok(())
