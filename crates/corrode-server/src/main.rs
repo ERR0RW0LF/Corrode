@@ -1,7 +1,11 @@
+use axum_login::AuthnBackend;
 use dotenvy::dotenv;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use anyhow::Result;
+use uuid::uuid;
+
+use crate::auth::Backend;
 
 #[cfg(test)]
 mod tests;
