@@ -176,5 +176,5 @@ fn hash_password(password: &str) -> anyhow::Result<String>{
 
 fn verify_password(password: &str, pw_hash: &str, argon2: Argon2<'_>) -> anyhow::Result<bool> {
     let res = argon2.verify_password(password.as_bytes(), pw_hash);
-    Ok(res.is_ok() as bool)
+    Ok(res.is_ok())
 }
