@@ -33,6 +33,13 @@ async fn main() -> Result<()>{
     let pool = db::setup_pool(&pool_address).await?;
 
 
+    let pepper = std::env::var("PASSWORD_PEPPER").unwrap();
+
+    let backend = Backend::new(pool.clone(), pepper);
+
+    println!("{:#?}",backend.get_user(&uuid!("f450bff9-de5c-4121-b7d3-7645ac77a5c3")).await);
+    println!("{:#?}",backend.get_user(&uuid!("f450bff9-de5c-4121-b7d3-7645ac77a5c2")).await);
     pool.close().await;
+    println!("{:#?}",backend.get_user(&uuid!("f450bff9-de5c-4121-b7d3-7645ac77a5c3")).await);
     Ok(())
 }

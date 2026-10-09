@@ -39,7 +39,7 @@ pub struct Backend {
 }
 
 impl Backend {
-    fn new(users: PgPool, pepper: String) -> Self {
+    pub fn new(users: PgPool, pepper: String) -> Self {
         Backend { users , pepper }
     }
 }
