@@ -1,10 +1,9 @@
-use std::{fmt::Debug, time::Duration};
+use std::{fmt::Debug};
 use argon2::{Algorithm, Argon2, Params, PasswordHasher, PasswordVerifier, Version};
 use serde::Deserialize;
 use thiserror::Error;
 use axum_login::{AuthUser, AuthnBackend};
 use sqlx::{FromRow, PgPool};
-use tokio::time::sleep;
 use uuid::Uuid;
 
 
@@ -100,7 +99,6 @@ impl AuthUser for User {
     }
 }
 
-use rand::{RngExt};
 
 impl AuthnBackend for Backend {
     type User = User;
@@ -119,40 +117,19 @@ impl AuthnBackend for Backend {
             Version::default(), 
             Params::default()
         )?;
-        
 
-        
-
-        let (base_delay_millis, base_delay_micros, jitter_millis, jitter_micros) = {
-            let mut rng = rand::rng();
-            let base_delay_millis = 13;
-            let base_delay_micros = 46;
-            let jitter_millis = rng.random_range(-base_delay_millis..base_delay_millis);
-            let jitter_micros = rng.random_range(-base_delay_micros..base_delay_micros);
-            (base_delay_millis, base_delay_micros, jitter_millis, jitter_micros)
-        };
-
-
-        sleep(Duration::from_millis((base_delay_millis + jitter_millis) as u64) + Duration::from_micros((base_delay_micros + jitter_micros) as u64)).await;
-
-
-
-        let user: Self::User = if let Ok(Some(t)) = sqlx::query_as("select * from users where username = $1").bind(cred.username).fetch_optional(&self.users).await {
-            t
-        } else {
-            return Ok(None);
-        };
-
-        match verify_password(&cred.password, &user.password_hash, argon2) {
-            Ok(true) => {
-                Ok(Some(user))
-            },
-            Ok(false) => {
-                Ok(None)
-            },
-            Err(e) => {
-                Err(AuthError::from(e))
+        let user: Self::User = match sqlx::query_as("select * from users where username = $1").bind(cred.username).fetch_optional(&self.users).await? {
+            Some(t) => t,
+            None => {
+                let _ = verify_password("a", "b", argon2);
+                return Ok(None);
             }
+        };
+
+        if verify_password(&cred.password, &user.password_hash, argon2)? {
+            Ok(Some(user))
+        } else {
+            Ok(None)
         }
     }
 
