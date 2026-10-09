@@ -18,6 +18,16 @@ pub enum AuthError {
 
     #[error("fetch user by id failed")]
     IdBasedFail,
+
+
+    #[error("sqlx error was parsed")]
+    SqlxError(String)
+}
+
+impl From<sqlx::Error> for AuthError {
+    fn from(value: sqlx::Error) -> Self {
+        Self::SqlxError(value.to_string())
+    }
 }
 
 
@@ -140,14 +150,8 @@ impl AuthnBackend for Backend {
     ) -> impl Future<Output = Result<Option<Self::User>, Self::Error>> + Send
     {
         let pool = self.users.clone();
-        let user_id = user_id.clone();
-
         async move {
-            let user: Option<Self::User> = match sqlx::query_as("select * from users where id = $1").bind(user_id).fetch_optional(&pool).await {
-                Ok(g) => g,
-                _ => {return Err(Self::Error::IdBasedFail); }
-            };
-            Ok(user)
+            Ok(sqlx::query_as("select * from users where id = $1").bind(user_id).fetch_optional(&pool).await?)
         }
     }
 }
