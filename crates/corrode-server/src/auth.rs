@@ -10,18 +10,14 @@ use uuid::Uuid;
 
 #[derive(Error, Debug)]
 pub enum AuthError {
-    #[error("credentials given are incorrect")]
-    CredentialsIncorrect,
-
-    #[error("argon2 error")]
-    Argon2Error,
-
-    #[error("fetch user by id failed")]
-    IdBasedFail,
-
+    #[error("argon2 error was parsed")]
+    Argon2Error(String),
 
     #[error("sqlx error was parsed")]
-    SqlxError(String)
+    SqlxError(String),
+
+    #[error("anyhow error was parsed")]
+    AnyhowError(String),
 }
 
 impl From<sqlx::Error> for AuthError {
@@ -30,7 +26,17 @@ impl From<sqlx::Error> for AuthError {
     }
 }
 
+impl From<argon2::Error> for AuthError {
+    fn from(value: argon2::Error) -> Self {
+        Self::Argon2Error(value.to_string())
+    }
+}
 
+impl From<anyhow::Error> for AuthError {
+    fn from(value: anyhow::Error) -> Self {
+        Self::AnyhowError(value.to_string())
+    }
+}
 
 
 
@@ -112,14 +118,20 @@ impl AuthnBackend for Backend {
             Algorithm::default(), 
             Version::default(), 
             Params::default()
-        ).unwrap_or(return Err(Self::Error::Argon2Error));
+        )?;
         
-        let mut rng = rand::rng();
 
-        let base_delay_millis = 13;
-        let base_delay_micros = 46;
-        let jitter_millis = rng.random_range(-base_delay_millis..base_delay_millis);
-        let jitter_micros = rng.random_range(-base_delay_micros..base_delay_micros);
+        
+
+        let (base_delay_millis, base_delay_micros, jitter_millis, jitter_micros) = {
+            let mut rng = rand::rng();
+            let base_delay_millis = 13;
+            let base_delay_micros = 46;
+            let jitter_millis = rng.random_range(-base_delay_millis..base_delay_millis);
+            let jitter_micros = rng.random_range(-base_delay_micros..base_delay_micros);
+            (base_delay_millis, base_delay_micros, jitter_millis, jitter_micros)
+        };
+
 
         sleep(Duration::from_millis((base_delay_millis + jitter_millis) as u64) + Duration::from_micros((base_delay_micros + jitter_micros) as u64)).await;
 
@@ -138,8 +150,8 @@ impl AuthnBackend for Backend {
             Ok(false) => {
                 Ok(None)
             },
-            Err(_) => {
-                Err(Self::Error::Argon2Error)
+            Err(e) => {
+                Err(AuthError::from(e))
             }
         }
     }
