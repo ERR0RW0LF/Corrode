@@ -10,31 +10,17 @@ use uuid::Uuid;
 #[derive(Error, Debug)]
 pub enum AuthError {
     #[error("argon2 error was parsed")]
-    Argon2Error(String),
+    Argon2Error(#[from] argon2::Error),
+
+
+    #[error("argon2 password hash error was parsed")]
+    PasswordHashError(#[from] argon2::password_hash::Error),
 
     #[error("sqlx error was parsed")]
-    SqlxError(String),
+    SqlxError(#[from] sqlx::Error),
 
     #[error("anyhow error was parsed")]
-    AnyhowError(String),
-}
-
-impl From<sqlx::Error> for AuthError {
-    fn from(value: sqlx::Error) -> Self {
-        Self::SqlxError(value.to_string())
-    }
-}
-
-impl From<argon2::Error> for AuthError {
-    fn from(value: argon2::Error) -> Self {
-        Self::Argon2Error(value.to_string())
-    }
-}
-
-impl From<anyhow::Error> for AuthError {
-    fn from(value: anyhow::Error) -> Self {
-        Self::AnyhowError(value.to_string())
-    }
+    AnyhowError(#[from] anyhow::Error),
 }
 
 
@@ -163,7 +149,14 @@ fn hash_password(password: &str) -> anyhow::Result<String>{
     Ok(password_hash)
 }
 
-fn verify_password(password: &str, pw_hash: &str, argon2: Argon2<'_>) -> anyhow::Result<bool> {
+fn verify_password(password: &str, pw_hash: &str, argon2: Argon2<'_>) -> Result<bool, AuthError> {
     let res = argon2.verify_password(password.as_bytes(), pw_hash);
-    Ok(res.is_ok())
+    match res {
+        Ok(_) => {
+            Ok(true)
+        },
+        Err(e) => {
+            Err(AuthError::from(e))
+        }
+    }
 }
